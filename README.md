@@ -1,10 +1,10 @@
 # Strategy Trading
-An Algo trading backtesting library.
+This library will have many tools for algorithmic trading. So far it only supports comprehensive backtests.
 To install:
 ```
 pip3 install git+https://github.com/numberjuani/strategy.git
 ```
-To use:
+## To use:
 Create a pandas dataframe with your trading signals in each row. These must be 1 for long, -1 for short, 0 for hold.
 Once you have that, do this:
 ```
@@ -12,7 +12,7 @@ from strategy.performance_report import StrategyPerformanceReport
 backtest = StrategyPerformanceReport('SPY','demo_strategy',df,'Signal')
 performance_report,trades = backtest.get_backtest()
 ```
-<h1>Performance Reports</h2>
+# Performance Reports
 <table class="table table-bordered table-hover table-condensed">
 <thead><tr><th title="Field #1"></th>
 <th title="Field #2">All Trades</th>
@@ -206,7 +206,7 @@ performance_report,trades = backtest.get_backtest()
 <td>0.0</td>
 </tr>
 </tbody></table>
-<h1>Trades List</h2>
+# Trades List Example
 <table class="table table-bordered table-hover table-condensed">
 <thead><tr><th title="Field #1">Trade Number</th>
 <th title="Field #2">position</th>
