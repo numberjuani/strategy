@@ -203,9 +203,6 @@ class StrategyPerformanceReport:
         analytics['perfect_profit_correlation'] = 100 * \
             trades_list.strategy_equity.corr(perfect_profit_line)
         analytics['max_drawdown'] = -trades_list.drawdown.min()
-        analytics['max_drawdown_duration'] = (
-            trades_list.strategy_equity.cummax() -
-            trades_list.strategy_equity).idxmin()
         dt_indexed = trades_list.set_index('exit_date')
         daily_returns = 100 * \
             dt_indexed.strategy_equity.resample('D').last().pct_change()
