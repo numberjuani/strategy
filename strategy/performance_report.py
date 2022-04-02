@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+import yfinance as yf
 
 class StrategyPerformanceReport:
 
@@ -80,65 +80,75 @@ class StrategyPerformanceReport:
                     'datetime'].shift(-1)
             exit_fill_price = 'next_bar_open'
             exit_fill_date = 'next_bar_datetime'
-            exit_index_adjustment = 1
         if self.exit_fill == 'bar_close':
             exit_fill_price = 'close'
             exit_fill_date = 'datetime'
-            exit_index_adjustment = 0
         current_position = 0
         trades_list = []
-        entry_date = ''
+        unrealized_pnls = []
+        entry_date = None
+        entry_index = None
         for i in range(len(self.strategy_data)):
-            new_position = self.strategy_data.iloc[i][self.signal_column_name]
+            row = self.strategy_data.iloc[i]
+            new_position = row[self.signal_column_name]
+            unrealized_pnl = 0
+            
+            if entry_index:
+                trade_period = self.strategy_data.iloc[entry_index:i, :]
+                max_high = trade_period['high'].max()
+                min_low = trade_period['low'].min()
+                # in this match statement we calculate open trade stats
+                match current_position:
+                    case 1:
+                        max_adverse_excursion = multiplier*(entry_price - min_low)
+                        max_favorable_excursion = multiplier*(max_high - entry_price)
+                        diff = row[exit_fill_price] - entry_price
+                        unrealized_pnl = diff /entry_price
+                        pnl = multiplier*diff - costs
+                    case -1:
+                        max_adverse_excursion = multiplier*(max_high - entry_price)
+                        max_favorable_excursion = multiplier*(entry_price - min_low)
+                        diff = entry_price - row[exit_fill_price]
+                        unrealized_pnl = diff /entry_price
+                        pnl = multiplier*diff - costs
+                    case _:
+                        max_adverse_excursion = 0
+                        max_favorable_excursion = 0
+            
+            unrealized_pnls.append({'date':row['datetime'],'pnl':unrealized_pnl})    
             if new_position != current_position:
-                if entry_date != '':
-                    entry_price = self.strategy_data.iloc[i][entry_fill_price]
-                    exit_date = self.strategy_data.iloc[i][exit_fill_date]
-                    exit_index = i + exit_index_adjustment
-                    trade_period = self.strategy_data.iloc[
-                        entry_index:exit_index, :]
-                    max_high = trade_period['high'].max()
-                    min_low = trade_period['low'].min()
-                    max_adverse_excursion = entry_price - \
-                        min_low if current_position == 1 else max_high - entry_price
-                    max_adverse_excursion = max_adverse_excursion * multiplier
-                    max_favorable_excursion = max_high - \
-                        entry_price if current_position == 1 else entry_price - min_low
-                    max_favorable_excursion = max_favorable_excursion * multiplier
-                    exit_price = self.strategy_data.iloc[i][exit_fill_price]
-                    trade_duration = exit_date - entry_date
-                    mfemae = max_favorable_excursion / \
-                        max_adverse_excursion if max_adverse_excursion != 0 else 0
+                if entry_date:
+                    entry_price = row[entry_fill_price]
                     trade.update({
-                        'exit_date': exit_date,
-                        'exit_price': exit_price,
-                        'trade_duration': trade_duration,
+                        'exit_date': row[exit_fill_date],
+                        'exit_price': row[exit_fill_price],
+                        'trade_duration': row[exit_fill_date] - entry_date,
                         'max_favorable_excursion': max_favorable_excursion,
                         'max_adverse_excursion': -max_adverse_excursion,
-                        'mfemae_ratio': mfemae,
+                        'mfemae_ratio': safe_division(max_favorable_excursion,max_adverse_excursion),
                         'commissions': 2 * self.commission_per_trade,
-                        'slippage': 2 * self.slippage
+                        'slippage': 2 * self.slippage,
+                        'pnl':pnl
                     }),
-                    trade['pnl'] = (
-                        multiplier * trade['position'] *
-                        (trade['exit_price'] - trade['entry_price'])) - costs
                     trades_list.append(trade)
-                    entry_date = ''
+                    entry_date = None
                     del trade
                 if new_position != 0:
-                    entry_date = self.strategy_data.iloc[i][entry_fill_date]
                     entry_index = i + entry_index_adjustment
                     current_position = new_position
+                    entry_price = row[entry_fill_price]
+                    entry_date = row[entry_fill_date]
                     trade = {
                         'position': current_position,
-                        'entry_date': entry_date,
-                        'entry_price':
-                        self.strategy_data.iloc[i][entry_fill_price]
+                        'entry_date': row[entry_fill_date],
+                        'entry_price': entry_price
                     }
         frame = pd.DataFrame(trades_list)
         frame.index.name = 'Trade Number'
         self.raw_trade_list = frame
-
+        upl_frame = pd.DataFrame(unrealized_pnls)
+        upl_frame.set_index('date', inplace=True)
+        self.unrealized = upl_frame
     def _get_trade_collection_analytics(self, trades_list: pd.DataFrame):
         """Function to generate strategy analytics from a trades list"""
         trades_list = trades_list.copy()
@@ -203,16 +213,14 @@ class StrategyPerformanceReport:
         analytics['perfect_profit_correlation'] = 100 * \
             trades_list.strategy_equity.corr(perfect_profit_line)
         analytics['max_drawdown'] = -trades_list.drawdown.min()
-        dt_indexed = trades_list.set_index('exit_date')
-        daily_returns = 100 * \
-            dt_indexed.strategy_equity.resample('D').last().pct_change()
-        analytics['annualized_sharpe_ratio'] = (
-            daily_returns.mean() / daily_returns.std()) * np.sqrt(252)
-        analytics['strategy_return'] = trades_list.iloc[-1]['strategy_returns']
-        analytics['annualized_return'] = (
+        #resample the unrealized pnl to daily
+        daily_unrealized_returns:pd.DataFrame = self.unrealized.pnl.resample('D').sum()
+        daily_unrealized_returns.fillna(0, inplace=True)
+        analytics['annualized_sharpe_ratio'] = (np.mean(daily_unrealized_returns) - self.risk_free_ror)/ (np.std(daily_unrealized_returns) * np.sqrt(252))
+        analytics['annualized_risk_free_ror'] = self.risk_free_ror
+        analytics['annualized_strategy_ror'] = (
             trades_list.iloc[-1]['strategy_returns'] / number_of_years)
-        analytics['annualized_volatility'] = round(
-            trades_list['strategy_returns'].std(), 2)
+        analytics['annualized_volatility'] = np.std(daily_unrealized_returns) * np.sqrt(252)
         analytics['total_commission_paid'] = trades_list.commissions.sum()
         analytics['total_slippage_paid'] = trades_list.slippage.sum()
         analytics['total_costs'] = analytics['total_commission_paid'] + \
@@ -221,6 +229,9 @@ class StrategyPerformanceReport:
 
     def _get_analytics(self):
         self._get_trades_list()
+        ticker_yahoo = yf.Ticker('^IRX')
+        data = ticker_yahoo.history()
+        self.risk_free_ror = (data['Close'].iloc[-1]/13*5)
         short_analytics, short_trades = self._get_trade_collection_analytics(
             self.raw_trade_list.loc[self.raw_trade_list.position == -1])
         long_analytics, long_trades = self._get_trade_collection_analytics(
@@ -236,7 +247,7 @@ class StrategyPerformanceReport:
         self.short_trades = short_trades
         self.long_trade_trades = long_trades
 
-    def get_backtest(self):
+    def run_backtest(self):
         self._get_analytics()
         #map the position of the trades to be long or short
         self.all_trades['position'] = self.all_trades.position.map({1: 'long', -1: 'short'})
@@ -251,3 +262,10 @@ class StrategyPerformanceReport:
             self.performance_report.to_excel(writer, 'Performance Report')
             self.all_trades.to_excel(writer, 'Trade List')
             writer.save()
+
+
+def safe_division(dividend:float, divisor:float)->float:
+    if divisor == 0:
+        return 0
+    else:
+        return dividend / divisor

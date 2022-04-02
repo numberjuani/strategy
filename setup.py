@@ -6,8 +6,8 @@ setuptools.setup(name='strategy',
       author='Juan Marquez git@numberjuani',
       author_email='juanignaciomarquez@gmail.com',
       packages=setuptools.find_packages(),
-      install_requires=['numpy>=1.21.5',
-                        'pandas>=1.3.5',
-                        'python-dateutil>=2.8.2',
-                        'pytz>=2022.1',
-                        'six>=1.16.0'])
+      install_requires=['numpy',
+                        'pandas',
+                        'python-dateutil',
+                        'pytz',
+                        'six'])
