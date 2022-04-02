@@ -10,4 +10,5 @@ setuptools.setup(name='strategy',
                         'pandas',
                         'python-dateutil',
                         'pytz',
-                        'six'])
+                        'six',
+                        'yfinance'])
