@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import yfinance as yf
-
+from strategy.fills import FillType as fill
+from strategy.positions import PositionType as pos,position_from_value
 class StrategyPerformanceReport:
 
     def __init__(self,
@@ -10,8 +11,8 @@ class StrategyPerformanceReport:
                  strategy_data: pd.DataFrame,
                  signal_column_name: str,
                  trade_amount: int = 100,
-                 entry_fill: str = 'next_bar_open',
-                 exit_fill: str = 'next_bar_open',
+                 entry_fill: fill = fill.NextBarOpen,
+                 exit_fill: fill = fill.NextBarOpen,
                  point_value: int = 1,
                  commission_per_trade: float = 0,
                  slippage: float = 0.0,
@@ -59,70 +60,85 @@ class StrategyPerformanceReport:
         multiplier = self.point_value * self.trade_amount
         costs = (2 * (self.commission_per_trade + self.slippage))
         #calculate relevant values for the simulated entry fill
-        if self.entry_fill == 'next_bar_open':
-            self.strategy_data['next_bar_open'] = self.strategy_data[
-                'open'].shift(-1)
-            self.strategy_data['next_bar_datetime'] = self.strategy_data[
-                'datetime'].shift(-1)
-            entry_fill_price = 'next_bar_open'
-            entry_fill_date = 'next_bar_datetime'
-            entry_index_adjustment = 1
-        if self.entry_fill == 'bar_close':
-            entry_fill_price = 'close'
-            entry_fill_date = 'datetime'
-            entry_index_adjustment = 0
+        match self.entry_fill:
+            case fill.NextBarOpen:
+                self.strategy_data['next_bar_open'] = self.strategy_data['open'].shift(-1)
+                self.strategy_data['next_bar_datetime'] = self.strategy_data['datetime'].shift(-1)
+                entry_fill_price = 'next_bar_open'
+                entry_fill_date = 'next_bar_datetime'
+                entry_index_adjustment = 1
+            case fill.SameBarClose:
+                entry_fill_price = 'close'
+                entry_fill_date = 'datetime'
+                entry_index_adjustment = 0 
+                entry_fill_price = 'close'
+            case fill.SameBarOpen:
+                entry_fill_price = 'open'
+                entry_fill_date = 'datetime'
+                entry_index_adjustment = 0 
+            case fill.AdjustedClose:
+                entry_fill_price = 'adjusted_close'
+                entry_fill_date = 'datetime'
+                entry_index_adjustment = 0
         #calculate relevant values for the simulated exit fill
-        if self.exit_fill == 'next_bar_open':
-            if 'next_bar_open' not in self.strategy_data.columns:
-                self.strategy_data['next_bar_open'] = self.strategy_data[
-                    'open'].shift(-1)
-                self.strategy_data['next_bar_datetime'] = self.strategy_data[
-                    'datetime'].shift(-1)
-            exit_fill_price = 'next_bar_open'
-            exit_fill_date = 'next_bar_datetime'
-        if self.exit_fill == 'bar_close':
-            exit_fill_price = 'close'
-            exit_fill_date = 'datetime'
+        match self.exit_fill:
+            case fill.NextBarOpen:
+                if 'next_bar_open' not in self.strategy_data.columns:
+                    self.strategy_data['next_bar_open'] = self.strategy_data['open'].shift(-1)
+                self.strategy_data['next_bar_datetime'] = self.strategy_data['datetime'].shift(-1)
+                exit_fill_price = 'next_bar_open'
+                exit_fill_date = 'next_bar_datetime'
+                exit_index_adjustment = 1
+            case fill.SameBarClose:
+                exit_fill_price = 'close'
+                exit_fill_date = 'datetime'
+                exit_index_adjustment = 0
+            case fill.SameBarOpen:
+                exit_fill_price = 'open'
+                exit_fill_date = 'datetime'
+                exit_index_adjustment = 0
+            case fill.AdjustedClose:
+                exit_fill_price = 'adjusted_close'
+                exit_fill_date = 'datetime'
+                exit_index_adjustment = 0
         current_position = 0
         trades_list = []
         unrealized_pnls = []
         entry_date = None
         entry_index = None
         for i in range(len(self.strategy_data)):
-            row = self.strategy_data.iloc[i]
-            new_position = row[self.signal_column_name]
+            new_position = position_from_value(self.strategy_data.iloc[i][self.signal_column_name])
             unrealized_pnl = 0
-            
             if entry_index:
-                trade_period = self.strategy_data.iloc[entry_index:i, :]
+                trade_period = self.strategy_data.iloc[entry_index:i+exit_index_adjustment, :]
                 max_high = trade_period['high'].max()
                 min_low = trade_period['low'].min()
                 # in this match statement we calculate open trade stats
                 match current_position:
-                    case 1:
+                    case pos.Long:
                         max_adverse_excursion = multiplier*(entry_price - min_low)
                         max_favorable_excursion = multiplier*(max_high - entry_price)
-                        diff = row[exit_fill_price] - entry_price
+                        diff = self.strategy_data.iloc[i][exit_fill_price] - entry_price
                         unrealized_pnl = diff /entry_price
                         pnl = multiplier*diff - costs
-                    case -1:
+                    case pos.Short:
                         max_adverse_excursion = multiplier*(max_high - entry_price)
                         max_favorable_excursion = multiplier*(entry_price - min_low)
-                        diff = entry_price - row[exit_fill_price]
+                        diff = entry_price - self.strategy_data.iloc[i][exit_fill_price]
                         unrealized_pnl = diff /entry_price
                         pnl = multiplier*diff - costs
-                    case _:
+                    case pos.Flat:
                         max_adverse_excursion = 0
                         max_favorable_excursion = 0
             
-            unrealized_pnls.append({'date':row['datetime'],'pnl':unrealized_pnl})    
+            unrealized_pnls.append({'date':self.strategy_data.iloc[i]['datetime'],'pnl':unrealized_pnl})    
             if new_position != current_position:
-                if entry_date:
-                    entry_price = row[entry_fill_price]
+                if entry_index:
+                    entry_price = self.strategy_data.iloc[i][entry_fill_price]
                     trade.update({
-                        'exit_date': row[exit_fill_date],
-                        'exit_price': row[exit_fill_price],
-                        'trade_duration': row[exit_fill_date] - entry_date,
+                        'exit_date': self.strategy_data.iloc[i][exit_fill_date],
+                        'exit_price': self.strategy_data.iloc[i][exit_fill_price],
+                        'trade_duration': self.strategy_data.iloc[i][exit_fill_date] - entry_date,
                         'max_favorable_excursion': max_favorable_excursion,
                         'max_adverse_excursion': -max_adverse_excursion,
                         'mfemae_ratio': safe_division(max_favorable_excursion,max_adverse_excursion),
@@ -136,11 +152,11 @@ class StrategyPerformanceReport:
                 if new_position != 0:
                     entry_index = i + entry_index_adjustment
                     current_position = new_position
-                    entry_price = row[entry_fill_price]
-                    entry_date = row[entry_fill_date]
+                    entry_price = self.strategy_data.iloc[i][entry_fill_price]
+                    entry_date = self.strategy_data.iloc[i][entry_fill_date]
                     trade = {
                         'position': current_position,
-                        'entry_date': row[entry_fill_date],
+                        'entry_date': self.strategy_data.iloc[i][entry_fill_date],
                         'entry_price': entry_price
                     }
         frame = pd.DataFrame(trades_list)
@@ -225,21 +241,24 @@ class StrategyPerformanceReport:
         analytics['total_slippage_paid'] = trades_list.slippage.sum()
         analytics['total_costs'] = analytics['total_commission_paid'] + \
             analytics['total_slippage_paid']
+        #round all the analytics values to 2 decimal places
+        for key, value in analytics.items():
+            if type(value) == float:
+                analytics[key] = round(value, 2)
+        #round all the values in the trades list to 2 decimal places
+        trades_list = trades_list.round(decimals=2)
         return (analytics, trades_list)
 
     def _get_analytics(self):
         self._get_trades_list()
         ticker_yahoo = yf.Ticker('^IRX')
         data = ticker_yahoo.history()
-        self.risk_free_ror = (data['Close'].iloc[-1]/13*5)
-        short_analytics, short_trades = self._get_trade_collection_analytics(
-            self.raw_trade_list.loc[self.raw_trade_list.position == -1])
-        long_analytics, long_trades = self._get_trade_collection_analytics(
-            self.raw_trade_list.loc[self.raw_trade_list.position == 1])
-        all_analytics, all_trades = self._get_trade_collection_analytics(
-            self.raw_trade_list)
-        df = pd.DataFrame([all_analytics, long_analytics, short_analytics],
-                          index=['All Trades', 'Long Trades', 'Short Trades'])
+        #the rate is for 13 weeks, so we divide it by the number of days and then divide by 100 so its in ratio form like our unrealized pnl list
+        self.risk_free_ror = ((data['Close'].iloc[-1]/(13*5)))/100
+        short_analytics, short_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Short])
+        long_analytics, long_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Long])
+        all_analytics, all_trades = self._get_trade_collection_analytics(self.raw_trade_list)
+        df = pd.DataFrame([all_analytics, long_analytics, short_analytics],index=['All Trades', 'Long Trades', 'Short Trades'])
         self.performance_report = df.transpose()
         self.long_performance_report = long_analytics
         self.short_performance_report = short_analytics
@@ -250,7 +269,7 @@ class StrategyPerformanceReport:
     def run_backtest(self):
         self._get_analytics()
         #map the position of the trades to be long or short
-        self.all_trades['position'] = self.all_trades.position.map({1: 'long', -1: 'short'})
+        self.all_trades['position'] = self.all_trades.position.apply(lambda x: x.name())
         return (self.performance_report, self.all_trades)
 
     def to_excel(self):
