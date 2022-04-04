@@ -6,15 +6,14 @@ class PositionType(Enum):
     Flat = 9,
     Hold = 0,
     def name(self):
-        match self:
-            case PositionType.Long:
-                return "Long"
-            case PositionType.Short:
-                return "Short"
-            case PositionType.Flat:
-                return "Flat"
-            case PositionType.Hold:
-                return "Hold"
+        if self == PositionType.Long:
+            return "Long"
+        elif self == PositionType.Short:
+            return "Short"
+        elif self == PositionType.Flat:
+            return "Flat"
+        elif self == PositionType.Hold:
+            return "Hold"
 
 def position_from_value(value) -> PositionType:
     """Matches a position type from a value"""
