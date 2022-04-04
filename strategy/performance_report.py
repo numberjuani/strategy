@@ -60,47 +60,45 @@ class StrategyPerformanceReport:
         multiplier = self.point_value * self.trade_amount
         costs = (2 * (self.commission_per_trade + self.slippage))
         #calculate relevant values for the simulated entry fill
-        match self.entry_fill:
-            case fill.NextBarOpen:
-                self.strategy_data['next_bar_open'] = self.strategy_data['open'].shift(-1)
-                self.strategy_data['next_bar_datetime'] = self.strategy_data['datetime'].shift(-1)
-                entry_fill_price = 'next_bar_open'
-                entry_fill_date = 'next_bar_datetime'
-                entry_index_adjustment = 1
-            case fill.SameBarClose:
-                entry_fill_price = 'close'
-                entry_fill_date = 'datetime'
-                entry_index_adjustment = 0 
-                entry_fill_price = 'close'
-            case fill.SameBarOpen:
-                entry_fill_price = 'open'
-                entry_fill_date = 'datetime'
-                entry_index_adjustment = 0 
-            case fill.AdjustedClose:
-                entry_fill_price = 'adjusted_close'
-                entry_fill_date = 'datetime'
-                entry_index_adjustment = 0
+        if self.entry_fill == fill.NextBarOpen:
+            self.strategy_data['next_bar_open'] = self.strategy_data['open'].shift(-1)
+            self.strategy_data['next_bar_datetime'] = self.strategy_data['datetime'].shift(-1)
+            entry_fill_price = 'next_bar_open'
+            entry_fill_date = 'next_bar_datetime'
+            entry_index_adjustment = 1
+        elif self.entry_fill == fill.SameBarClose:
+            entry_fill_price = 'close'
+            entry_fill_date = 'datetime'
+            entry_index_adjustment = 0 
+            entry_fill_price = 'close'
+        elif self.entry_fill == fill.SameBarOpen:
+            entry_fill_price = 'open'
+            entry_fill_date = 'datetime'
+            entry_index_adjustment = 0 
+        elif self.entry_fill ==  fill.AdjustedClose:
+            entry_fill_price = 'adjusted_close'
+            entry_fill_date = 'datetime'
+            entry_index_adjustment = 0
         #calculate relevant values for the simulated exit fill
-        match self.exit_fill:
-            case fill.NextBarOpen:
-                if 'next_bar_open' not in self.strategy_data.columns:
-                    self.strategy_data['next_bar_open'] = self.strategy_data['open'].shift(-1)
-                self.strategy_data['next_bar_datetime'] = self.strategy_data['datetime'].shift(-1)
-                exit_fill_price = 'next_bar_open'
-                exit_fill_date = 'next_bar_datetime'
-                exit_index_adjustment = 1
-            case fill.SameBarClose:
-                exit_fill_price = 'close'
-                exit_fill_date = 'datetime'
-                exit_index_adjustment = 0
-            case fill.SameBarOpen:
-                exit_fill_price = 'open'
-                exit_fill_date = 'datetime'
-                exit_index_adjustment = 0
-            case fill.AdjustedClose:
-                exit_fill_price = 'adjusted_close'
-                exit_fill_date = 'datetime'
-                exit_index_adjustment = 0
+        if self.entry_fill == fill.NextBarOpen:
+            if 'next_bar_open' not in self.strategy_data.columns:
+                self.strategy_data['next_bar_open'] = self.strategy_data['open'].shift(-1)
+            self.strategy_data['next_bar_datetime'] = self.strategy_data['datetime'].shift(-1)
+            exit_fill_price = 'next_bar_open'
+            exit_fill_date = 'next_bar_datetime'
+            exit_index_adjustment = 1
+        elif self.entry_fill ==  fill.SameBarClose:
+            exit_fill_price = 'close'
+            exit_fill_date = 'datetime'
+            exit_index_adjustment = 0
+        elif self.entry_fill == fill.SameBarOpen:
+            exit_fill_price = 'open'
+            exit_fill_date = 'datetime'
+            exit_index_adjustment = 0
+        elif self.entry_fill ==  fill.AdjustedClose:
+            exit_fill_price = 'adjusted_close'
+            exit_fill_date = 'datetime'
+            exit_index_adjustment = 0
         current_position = 0
         trades_list = []
         unrealized_pnls = []
@@ -114,23 +112,21 @@ class StrategyPerformanceReport:
                 max_high = trade_period['high'].max()
                 min_low = trade_period['low'].min()
                 # in this match statement we calculate open trade stats
-                match current_position:
-                    case pos.Long:
-                        max_adverse_excursion = multiplier*(entry_price - min_low)
-                        max_favorable_excursion = multiplier*(max_high - entry_price)
-                        diff = self.strategy_data.iloc[i][exit_fill_price] - entry_price
-                        unrealized_pnl = diff /entry_price
-                        pnl = multiplier*diff - costs
-                    case pos.Short:
-                        max_adverse_excursion = multiplier*(max_high - entry_price)
-                        max_favorable_excursion = multiplier*(entry_price - min_low)
-                        diff = entry_price - self.strategy_data.iloc[i][exit_fill_price]
-                        unrealized_pnl = diff /entry_price
-                        pnl = multiplier*diff - costs
-                    case pos.Flat:
-                        max_adverse_excursion = 0
-                        max_favorable_excursion = 0
-            
+                if current_position == pos.Long:
+                    max_adverse_excursion = multiplier*(entry_price - min_low)
+                    max_favorable_excursion = multiplier*(max_high - entry_price)
+                    diff = self.strategy_data.iloc[i][exit_fill_price] - entry_price
+                    unrealized_pnl = diff /entry_price
+                    pnl = multiplier*diff - costs
+                elif current_position == pos.Short:
+                    max_adverse_excursion = multiplier*(max_high - entry_price)
+                    max_favorable_excursion = multiplier*(entry_price - min_low)
+                    diff = entry_price - self.strategy_data.iloc[i][exit_fill_price]
+                    unrealized_pnl = diff /entry_price
+                    pnl = multiplier*diff - costs
+                else:
+                    max_adverse_excursion = 0
+                    max_favorable_excursion = 0
             unrealized_pnls.append({'date':self.strategy_data.iloc[i]['datetime'],'pnl':unrealized_pnl})    
             if new_position != current_position:
                 if entry_index:
