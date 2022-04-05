@@ -228,8 +228,7 @@ class StrategyPerformanceReport:
         #resample the unrealized pnl to daily
         daily_unrealized_returns:pd.DataFrame = self.unrealized.pnl.resample('D').sum()
         daily_unrealized_returns.fillna(0, inplace=True)
-        analytics['annualized_sharpe_ratio'] = (np.mean(daily_unrealized_returns) - self.risk_free_ror)/ (np.std(daily_unrealized_returns) * np.sqrt(252))
-        analytics['annualized_risk_free_ror'] = self.risk_free_ror
+        analytics['annualized_sharpe_ratio'] = (np.mean(daily_unrealized_returns) )/ (np.std(daily_unrealized_returns) * np.sqrt(252))
         analytics['annualized_strategy_ror'] = (
             trades_list.iloc[-1]['strategy_returns'] / number_of_years)
         analytics['annualized_volatility'] = np.std(daily_unrealized_returns) * np.sqrt(252)
@@ -247,10 +246,6 @@ class StrategyPerformanceReport:
 
     def _get_analytics(self):
         self._get_trades_list()
-        ticker_yahoo = yf.Ticker('^IRX')
-        data = ticker_yahoo.history()
-        #the rate is for 13 weeks, so we divide it by the number of days and then divide by 100 so its in ratio form like our unrealized pnl list
-        self.risk_free_ror = ((data['Close'].iloc[-1]/(13*5)))/100
         short_analytics, short_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Short])
         long_analytics, long_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Long])
         all_analytics, all_trades = self._get_trade_collection_analytics(self.raw_trade_list)
