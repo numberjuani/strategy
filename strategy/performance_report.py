@@ -34,12 +34,14 @@ class StrategyPerformanceReport:
     def _get_trades_list(self):
         #we copy the data to prevent getting the pandas error "SettingWithCopyWarning"
         self.strategy_data = self.strategy_data.copy()
+        self.strategy_data = self.strategy_data.reset_index()
         #we start analysis in the user provided index, given that some strategies need to start at a specific index
         self.strategy_data = self.strategy_data.iloc[self.start_at_index:]
         #make all the strategy data columns lower case in case input is upper case or mixed case
         self.strategy_data.columns = [
             x.lower() for x in self.strategy_data.columns
         ]
+        print(self.strategy_data.columns)
         #make sure the signal column is a numeric column since its multiplied by the price difference
         if self.strategy_data[self.signal_column_name].dtype != 'float64':
             self.strategy_data[self.signal_column_name] = self.strategy_data[
@@ -104,6 +106,7 @@ class StrategyPerformanceReport:
         unrealized_pnls = []
         entry_date = None
         entry_index = None
+        #check if index in self.strategy_data is datetime, if not, we convert it to datetime
         for i in range(len(self.strategy_data)):
             new_position = position_from_value(self.strategy_data.iloc[i][self.signal_column_name])
             unrealized_pnl = 0
