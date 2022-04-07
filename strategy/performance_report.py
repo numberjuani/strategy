@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import yfinance as yf
 from strategy.fills import FillType as fill
 from strategy.positions import PositionType as pos,position_from_value
 class StrategyPerformanceReport:
@@ -41,7 +40,6 @@ class StrategyPerformanceReport:
         self.strategy_data.columns = [
             x.lower() for x in self.strategy_data.columns
         ]
-        print(self.strategy_data.columns)
         #make sure the signal column is a numeric column since its multiplied by the price difference
         if self.strategy_data[self.signal_column_name].dtype != 'float64':
             self.strategy_data[self.signal_column_name] = self.strategy_data[
@@ -145,6 +143,7 @@ class StrategyPerformanceReport:
                         'slippage': 2 * self.slippage,
                         'pnl':pnl
                     }),
+                    print(trade)
                     trades_list.append(trade)
                     entry_date = None
                     del trade
@@ -162,7 +161,8 @@ class StrategyPerformanceReport:
         frame.index.name = 'Trade Number'
         self.raw_trade_list = frame
         upl_frame = pd.DataFrame(unrealized_pnls)
-        upl_frame.set_index('date', inplace=True)
+        if 'date' in upl_frame.columns:
+            upl_frame.set_index('date', inplace=True)
         self.unrealized = upl_frame
     def _get_trade_collection_analytics(self, trades_list: pd.DataFrame):
         """Function to generate strategy analytics from a trades list"""
