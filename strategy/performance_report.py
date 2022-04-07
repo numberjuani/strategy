@@ -128,6 +128,7 @@ class StrategyPerformanceReport:
                 else:
                     max_adverse_excursion = 0
                     max_favorable_excursion = 0
+                    pnl = 0
             unrealized_pnls.append({'date':self.strategy_data.iloc[i]['datetime'],'pnl':unrealized_pnl})    
             if new_position != current_position:
                 if entry_index and pnl:
