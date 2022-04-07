@@ -143,7 +143,6 @@ class StrategyPerformanceReport:
                         'slippage': 2 * self.slippage,
                         'pnl':pnl
                     }),
-                    print(trade)
                     trades_list.append(trade)
                     entry_date = None
                     del trade
