@@ -130,7 +130,7 @@ class StrategyPerformanceReport:
                     max_favorable_excursion = 0
             unrealized_pnls.append({'date':self.strategy_data.iloc[i]['datetime'],'pnl':unrealized_pnl})    
             if new_position != current_position:
-                if entry_index:
+                if entry_index and pnl:
                     entry_price = self.strategy_data.iloc[i][entry_fill_price]
                     trade.update({
                         'exit_date': self.strategy_data.iloc[i][exit_fill_date],
