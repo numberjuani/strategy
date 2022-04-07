@@ -100,7 +100,7 @@ class StrategyPerformanceReport:
             exit_fill_price = 'adjusted_close'
             exit_fill_date = 'datetime'
             exit_index_adjustment = 0
-        current_position = 0
+        current_position = pos.Flat
         trades_list = []
         unrealized_pnls = []
         entry_date = None
@@ -109,7 +109,10 @@ class StrategyPerformanceReport:
         for i in range(len(self.strategy_data)):
             new_position = position_from_value(self.strategy_data.iloc[i][self.signal_column_name])
             unrealized_pnl = 0
-            if entry_index:
+            max_adverse_excursion = 0
+            max_favorable_excursion = 0
+            pnl = 0
+            if not current_position.is_flat():
                 trade_period = self.strategy_data.iloc[entry_index:i+exit_index_adjustment, :]
                 max_high = trade_period['high'].max()
                 min_low = trade_period['low'].min()
@@ -125,15 +128,10 @@ class StrategyPerformanceReport:
                     max_favorable_excursion = multiplier*(entry_price - min_low)
                     diff = entry_price - self.strategy_data.iloc[i][exit_fill_price]
                     unrealized_pnl = diff /entry_price
-                    pnl = multiplier*diff - costs
-                else:
-                    max_adverse_excursion = 0
-                    max_favorable_excursion = 0
-                    pnl = 0
+                    pnl = multiplier*diff - costs     
             unrealized_pnls.append({'date':self.strategy_data.iloc[i]['datetime'],'pnl':unrealized_pnl})    
             if new_position != current_position:
                 if entry_index and pnl:
-                    entry_price = self.strategy_data.iloc[i][entry_fill_price]
                     trade.update({
                         'exit_date': self.strategy_data.iloc[i][exit_fill_date],
                         'exit_price': self.strategy_data.iloc[i][exit_fill_price],
@@ -148,7 +146,7 @@ class StrategyPerformanceReport:
                     trades_list.append(trade)
                     entry_date = None
                     del trade
-                if new_position != 0:
+                if not new_position.is_flat():
                     entry_index = i + entry_index_adjustment
                     current_position = new_position
                     entry_price = self.strategy_data.iloc[i][entry_fill_price]

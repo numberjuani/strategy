@@ -3,8 +3,7 @@ from enum import Enum
 class PositionType(Enum):
     Long = 1,
     Short = -1,
-    Flat = 9,
-    Hold = 0,
+    Flat = 0,
     def name(self):
         if self == PositionType.Long:
             return "Long"
@@ -12,8 +11,8 @@ class PositionType(Enum):
             return "Short"
         elif self == PositionType.Flat:
             return "Flat"
-        elif self == PositionType.Hold:
-            return "Hold"
+    def is_flat(self):
+        return self == PositionType.Flat
 
 def position_from_value(value) -> PositionType:
     """Matches a position type from a value"""
