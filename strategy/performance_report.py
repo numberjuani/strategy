@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from strategy.fills import FillType as fill
 from strategy.positions import PositionType as pos,position_from_value
+
 class StrategyPerformanceReport:
 
     def __init__(self,
@@ -193,18 +194,13 @@ class StrategyPerformanceReport:
         analytics['profit_factor'] = (analytics['gross_profit'] /
                                       -analytics['gross_loss'])
         analytics['total_trades'] = len(trades_list)
-        analytics['percent_profitable'] = 100 * \
-            len(trades_list.loc[trades_list.pnl > 0]
-                )/analytics['total_trades']
+        analytics['percent_profitable'] = 100* safe_division(len(trades_list.loc[trades_list.pnl > 0]),analytics['total_trades'])
         analytics['winning_trades'] = len(trades_list.loc[trades_list.pnl > 0])
         analytics['losing_trades'] = len(trades_list.loc[trades_list.pnl <= 0])
         analytics['avg_trade_net_profit'] = trades_list.pnl.mean()
-        analytics['avg_win_trade_pnl'] = trades_list.loc[
-            trades_list.pnl > 0].pnl.mean()
-        analytics['avg_lose_trade_pnl'] = trades_list.loc[
-            trades_list.pnl <= 0].pnl.mean()
-        analytics['ratio_avg_win_loss'] = analytics['avg_win_trade_pnl']/- \
-            analytics['avg_lose_trade_pnl']
+        analytics['avg_win_trade_pnl'] = trades_list.loc[trades_list.pnl > 0].pnl.mean()
+        analytics['avg_lose_trade_pnl'] = trades_list.loc[trades_list.pnl <= 0].pnl.mean()
+        analytics['ratio_avg_win_loss'] = safe_division(analytics['avg_win_trade_pnl'],analytics['avg_lose_trade_pnl'])
         analytics['max_win_trade_pnl'] = trades_list.loc[
             trades_list.pnl > 0].pnl.max()
         analytics['max_lose_trade_pnl'] = trades_list.loc[
@@ -218,8 +214,7 @@ class StrategyPerformanceReport:
         analytics[
             'average_adverse_excursion'] = trades_list.max_adverse_excursion.mean(
             )
-        perfect_profit_slope = (analytics['total_net_profit']) / (
-            len(trades_list))
+        perfect_profit_slope = safe_division(analytics['total_net_profit'] ,len(trades_list))
         perfect_profit_line = pd.Series([
             self.initial_account_balance + perfect_profit_slope * x
             for x in trades_list.index
@@ -231,9 +226,8 @@ class StrategyPerformanceReport:
         #resample the unrealized pnl to daily
         daily_unrealized_returns:pd.DataFrame = self.unrealized.pnl.resample('D').sum()
         daily_unrealized_returns.fillna(0, inplace=True)
-        analytics['annualized_sharpe_ratio'] = (np.mean(daily_unrealized_returns) )/ (np.std(daily_unrealized_returns) * np.sqrt(252))
-        analytics['annualized_strategy_ror'] = (
-            trades_list.iloc[-1]['strategy_returns'] / number_of_years)
+        analytics['annualized_sharpe_ratio'] = safe_division(np.mean(daily_unrealized_returns), (np.std(daily_unrealized_returns) * np.sqrt(252)))
+        analytics['annualized_strategy_ror'] = safe_division(trades_list.iloc[-1]['strategy_returns'],number_of_years)
         analytics['annualized_volatility'] = np.std(daily_unrealized_returns) * np.sqrt(252)
         analytics['total_commission_paid'] = trades_list.commissions.sum()
         analytics['total_slippage_paid'] = trades_list.slippage.sum()
@@ -287,6 +281,7 @@ class StrategyPerformanceReport:
 
 
 def safe_division(dividend:float, divisor:float)->float:
+    """Checks to make sure no divide by 0 error"""
     if divisor == 0:
         return 0
     else:
