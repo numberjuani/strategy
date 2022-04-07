@@ -248,21 +248,30 @@ class StrategyPerformanceReport:
 
     def _get_analytics(self):
         self._get_trades_list()
-        short_analytics, short_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Short])
-        long_analytics, long_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Long])
-        all_analytics, all_trades = self._get_trade_collection_analytics(self.raw_trade_list)
-        df = pd.DataFrame([all_analytics, long_analytics, short_analytics],index=['All Trades', 'Long Trades', 'Short Trades'])
-        self.performance_report = df.transpose()
-        self.long_performance_report = long_analytics
-        self.short_performance_report = short_analytics
-        self.all_trades = all_trades
-        self.short_trades = short_trades
-        self.long_trade_trades = long_trades
+        if 'position' in self.raw_trade_list.columns:
+            short_analytics, short_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Short])
+            long_analytics, long_trades = self._get_trade_collection_analytics(self.raw_trade_list.loc[self.raw_trade_list.position == pos.Long])
+            all_analytics, all_trades = self._get_trade_collection_analytics(self.raw_trade_list)
+            df = pd.DataFrame([all_analytics, long_analytics, short_analytics],index=['All Trades', 'Long Trades', 'Short Trades'])
+            self.performance_report = df.transpose()
+            self.long_performance_report = long_analytics
+            self.short_performance_report = short_analytics
+            self.all_trades = all_trades
+            self.short_trades = short_trades
+            self.long_trade_trades = long_trades
+        else:
+            self.performance_report = None
+            self.long_performance_report = None
+            self.short_performance_report = None
+            self.all_trades = None
+            self.short_trades = None
+            self.long_trade_trades = None
 
     def run_backtest(self):
         self._get_analytics()
         #map the position of the trades to be long or short
-        self.all_trades['position'] = self.all_trades.position.apply(lambda x: x.name())
+        if 'position' in self.raw_trade_list.columns:
+            self.all_trades['position'] = self.all_trades.position.apply(lambda x: x.name())
         return (self.performance_report, self.all_trades)
 
     def to_excel(self):
