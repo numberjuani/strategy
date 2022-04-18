@@ -124,7 +124,7 @@ class StrategyPerformanceReport:
             unrealized_pnl = 0
             if not current_position.is_flat():
                 open_trade.update(
-                    self.strategy_data.iloc[i]['high'], self.strategy_data.iloc[i]['low'])
+                    float(self.strategy_data.iloc[i]['high']),float(self.strategy_data.iloc[i]['low']))
                 unrealized_pnl = open_trade.open_pnl(
                     self.strategy_data.iloc[i][exit_fill_price])
             unrealized_pnls.append(

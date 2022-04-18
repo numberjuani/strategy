@@ -71,14 +71,18 @@ class Position:
     def update(self, high: float, low: float):
         if self.position_type == PositionType.Long:
             current_favorable_excursion = (self.multiplier*(high - self.entry_price))
-            self.max_favorable_excursion = max(current_favorable_excursion, self.max_favorable_excursion)
+            mfe = max(self.max_favorable_excursion, current_favorable_excursion)
+            self.max_favorable_excursion = mfe
             current_adverse_excursion = (self.multiplier*(self.entry_price - low))
-            self.max_adverse_excursion = max(current_adverse_excursion, self.max_adverse_excursion)
+            mae = max(self.max_adverse_excursion, current_adverse_excursion)
+            self.max_adverse_excursion = mae
         elif self.position_type == PositionType.Short:
             current_favorable_excursion = (self.multiplier*(self.entry_price - low))
             current_adverse_excursion = (self.multiplier*(high - self.entry_price))
-            self.max_favorable_excursion = max(current_favorable_excursion, self.max_favorable_excursion)
-            self.max_adverse_excursion = max(current_adverse_excursion, self.max_adverse_excursion)
+            mfe = max(self.max_favorable_excursion, current_favorable_excursion)
+            mae = max(self.max_adverse_excursion, current_adverse_excursion)
+            self.max_favorable_excursion = mfe
+            self.max_adverse_excursion = mae
         else:
             self.max_favorable_excursion = 0
             self.max_adverse_excursion = 0
@@ -90,7 +94,7 @@ class Position:
             return pnl
         elif self.position_type == PositionType.Short:
             pnl = ((self.entry_price - price) * self.multiplier)
-            self.pnl
+            self.pnl = pnl
             return pnl
         else:
             return 0
