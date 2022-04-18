@@ -52,7 +52,7 @@ class Position:
     total_commissions: float
     total_slippage:float
 
-    def __init__(self, amount: int, entry_date: datetime.datetime, entry_price: float, position_type: PositionType, entry_commission: float,symbol: str, entry_slippage: float=0,  point_value: float=1):
+    def __init__(self, amount: float, entry_date: datetime.datetime, entry_price: float, position_type: PositionType, entry_commission: float,symbol: str, entry_slippage: float=0,  point_value: float=1):
         self.symbol = symbol
         self.amount = amount
         self.entry_date = entry_date
@@ -71,10 +71,10 @@ class Position:
     def update(self, high: float, low: float):
         if self.position_type == PositionType.Long:
             current_favorable_excursion = (self.multiplier*(high - self.entry_price))
-            mfe = max(self.max_favorable_excursion, current_favorable_excursion)
-            self.max_favorable_excursion = mfe
             current_adverse_excursion = (self.multiplier*(self.entry_price - low))
+            mfe = max(self.max_favorable_excursion, current_favorable_excursion)
             mae = max(self.max_adverse_excursion, current_adverse_excursion)
+            self.max_favorable_excursion = mfe
             self.max_adverse_excursion = mae
         elif self.position_type == PositionType.Short:
             current_favorable_excursion = (self.multiplier*(self.entry_price - low))
