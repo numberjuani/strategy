@@ -59,9 +59,11 @@ class StrategyPerformanceReport:
             x.lower() for x in self.strategy_data.columns
         ]
         # make sure the signal column is a numeric column since its multiplied by the price difference
-        if self.strategy_data[self.signal_column_name].dtype != 'float64':
-            self.strategy_data[self.signal_column_name] = self.strategy_data[
-                self.signal_column_name].astype('float')
+        self.strategy_data[self.signal_column_name] = self.strategy_data[self.signal_column_name].astype('float')
+        self.strategy_data['open'] = self.strategy_data['open'].astype('float')
+        self.strategy_data['high'] = self.strategy_data['high'].astype('float')
+        self.strategy_data['low'] = self.strategy_data['low'].astype('float')
+        self.strategy_data['close'] = self.strategy_data['close'].astype('float')
         # if the strategy does not contain a datetime column, we create it for we need it to calculate trade durations with timedelta
         if 'datetime' not in self.strategy_data.columns:
             # combine date and time columns
